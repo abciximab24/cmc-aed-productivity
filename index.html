@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CMC AED Productivity</title>
+  <style>
+    :root {
+      --bg: #f7f6f3;
+      --surface: #ffffff;
+      --text: #1a1a1a;
+      --muted: #6b6b6b;
+      --border: #e8e6e1;
+      --accent: #2d6a4f;
+      --accent-soft: #d8f3dc;
+      --radius: 12px;
+      --shadow: 0 1px 3px rgba(0, 0, 0, 0.06), 0 8px 24px rgba(0, 0, 0, 0.04);
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px 16px;
+      line-height: 1.5;
+    }
+
+    main {
+      width: 100%;
+      max-width: 420px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 32px 28px;
+    }
+
+    header {
+      margin-bottom: 28px;
+    }
+
+    h1 {
+      font-size: 1.25rem;
+      font-weight: 600;
+      letter-spacing: -0.02em;
+    }
+
+    .subtitle {
+      margin-top: 4px;
+      font-size: 0.875rem;
+      color: var(--muted);
+    }
+
+    form {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .field {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    label {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      font-size: 0.875rem;
+      font-weight: 500;
+    }
+
+    .weight {
+      font-size: 0.75rem;
+      font-weight: 400;
+      color: var(--muted);
+    }
+
+    input[type="number"] {
+      width: 100%;
+      padding: 10px 12px;
+      font-size: 1rem;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: var(--bg);
+      color: var(--text);
+      transition: border-color 0.15s, box-shadow 0.15s;
+      -moz-appearance: textfield;
+    }
+
+    input[type="number"]::-webkit-outer-spin-button,
+    input[type="number"]::-webkit-inner-spin-button {
+      -webkit-appearance: none;
+      margin: 0;
+    }
+
+    input[type="number"]:focus {
+      outline: none;
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px var(--accent-soft);
+      background: var(--surface);
+    }
+
+    .result {
+      margin-top: 28px;
+      padding-top: 24px;
+      border-top: 1px solid var(--border);
+    }
+
+    .result-label {
+      font-size: 0.75rem;
+      font-weight: 500;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--muted);
+    }
+
+    .total {
+      margin-top: 6px;
+      font-size: 2.5rem;
+      font-weight: 600;
+      letter-spacing: -0.03em;
+      color: var(--accent);
+      line-height: 1.1;
+    }
+
+    .total-unit {
+      font-size: 1rem;
+      font-weight: 400;
+      color: var(--muted);
+      margin-left: 4px;
+    }
+
+    .breakdown {
+      margin-top: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .breakdown-row {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.8125rem;
+      color: var(--muted);
+    }
+
+    .breakdown-row span:last-child {
+      font-variant-numeric: tabular-nums;
+      color: var(--text);
+    }
+
+    .breakdown-row.zero span:last-child {
+      color: var(--muted);
+      opacity: 0.5;
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <header>
+      <h1>CMC AED Productivity</h1>
+      <p class="subtitle">Equivalent minutes calculator</p>
+    </header>
+
+    <form id="calc-form" onsubmit="return false;">
+      <div class="field">
+        <label for="cat12">
+          Cat 1 / 2
+          <span class="weight">45 min each</span>
+        </label>
+        <input type="number" id="cat12" min="0" step="1" value="0" inputmode="numeric">
+      </div>
+
+      <div class="field">
+        <label for="cat3">
+          Cat 3
+          <span class="weight">22 min each</span>
+        </label>
+        <input type="number" id="cat3" min="0" step="1" value="0" inputmode="numeric">
+      </div>
+
+      <div class="field">
+        <label for="cat45">
+          Cat 4 / 5
+          <span class="weight">13 min each</span>
+        </label>
+        <input type="number" id="cat45" min="0" step="1" value="0" inputmode="numeric">
+      </div>
+
+      <div class="field">
+        <label for="emw">
+          EMW admitted
+          <span class="weight">+10 min each</span>
+        </label>
+        <input type="number" id="emw" min="0" step="1" value="0" inputmode="numeric">
+      </div>
+    </form>
+
+    <section class="result" aria-live="polite">
+      <p class="result-label">Total equivalent</p>
+      <p class="total">
+        <span id="total">0</span><span class="total-unit">min</span>
+      </p>
+
+      <div class="breakdown" id="breakdown"></div>
+    </section>
+  </main>
+
+  <script>
+    const RATES = {
+      cat12: 45,
+      cat3: 22,
+      cat45: 13,
+      emw: 10,
+    };
+
+    const LABELS = {
+      cat12: 'Cat 1 / 2',
+      cat3: 'Cat 3',
+      cat45: 'Cat 4 / 5',
+      emw: 'EMW admitted',
+    };
+
+    const inputs = {
+      cat12: document.getElementById('cat12'),
+      cat3: document.getElementById('cat3'),
+      cat45: document.getElementById('cat45'),
+      emw: document.getElementById('emw'),
+    };
+
+    const totalEl = document.getElementById('total');
+    const breakdownEl = document.getElementById('breakdown');
+
+    function clamp(value) {
+      if (!Number.isFinite(value) || value < 0) return 0;
+      return Math.floor(value);
+    }
+
+    function calculate() {
+      const counts = {};
+      let total = 0;
+
+      for (const key of Object.keys(RATES)) {
+        counts[key] = clamp(Number(inputs[key].value));
+        inputs[key].value = counts[key];
+      }
+
+      const parts = {};
+      for (const key of Object.keys(RATES)) {
+        parts[key] = counts[key] * RATES[key];
+        total += parts[key];
+      }
+
+      totalEl.textContent = total.toLocaleString();
+
+      breakdownEl.innerHTML = Object.keys(RATES)
+        .map((key) => {
+          const mins = parts[key];
+          const cls = mins === 0 ? 'breakdown-row zero' : 'breakdown-row';
+          return `<div class="${cls}"><span>${LABELS[key]}</span><span>${mins} min</span></div>`;
+        })
+        .join('');
+    }
+
+    Object.values(inputs).forEach((input) => {
+      input.addEventListener('input', calculate);
+    });
+
+    calculate();
+  </script>
+</body>
+</html>
