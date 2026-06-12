@@ -13,6 +13,10 @@
       --border: #e8e6e1;
       --accent: #2d6a4f;
       --accent-soft: #d8f3dc;
+      --warn: #9a6b00;
+      --warn-soft: #fff8e1;
+      --ok: #2d6a4f;
+      --ok-soft: #d8f3dc;
       --radius: 12px;
       --shadow: 0 1px 3px rgba(0, 0, 0, 0.06), 0 8px 24px rgba(0, 0, 0, 0.04);
     }
@@ -46,7 +50,7 @@
     }
 
     header {
-      margin-bottom: 28px;
+      margin-bottom: 24px;
     }
 
     h1 {
@@ -87,6 +91,7 @@
       color: var(--muted);
     }
 
+    select,
     input[type="number"] {
       width: 100%;
       padding: 10px 12px;
@@ -96,6 +101,9 @@
       background: var(--bg);
       color: var(--text);
       transition: border-color 0.15s, box-shadow 0.15s;
+    }
+
+    input[type="number"] {
       -moz-appearance: textfield;
     }
 
@@ -105,11 +113,45 @@
       margin: 0;
     }
 
+    select:focus,
     input[type="number"]:focus {
       outline: none;
       border-color: var(--accent);
       box-shadow: 0 0 0 3px var(--accent-soft);
       background: var(--surface);
+    }
+
+    .duty-meta {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      padding: 12px;
+      background: var(--bg);
+      border-radius: 8px;
+      font-size: 0.8125rem;
+    }
+
+    .duty-meta-item {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .duty-meta-label {
+      color: var(--muted);
+      font-size: 0.6875rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .duty-meta-value {
+      font-variant-numeric: tabular-nums;
+      font-weight: 500;
+    }
+
+    .duty-meta-item.goal .duty-meta-value {
+      color: var(--accent);
+      font-size: 1.125rem;
     }
 
     .result {
@@ -140,6 +182,24 @@
       font-weight: 400;
       color: var(--muted);
       margin-left: 4px;
+    }
+
+    .status {
+      margin-top: 12px;
+      padding: 10px 12px;
+      border-radius: 8px;
+      font-size: 0.875rem;
+      font-weight: 500;
+    }
+
+    .status.met {
+      background: var(--ok-soft);
+      color: var(--ok);
+    }
+
+    .status.short {
+      background: var(--warn-soft);
+      color: var(--warn);
     }
 
     .breakdown {
@@ -175,6 +235,15 @@
     </header>
 
     <form id="calc-form" onsubmit="return false;">
+      <div class="field">
+        <label for="duty">
+          Duty
+          <span class="weight">from duty list</span>
+        </label>
+        <select id="duty"></select>
+        <div class="duty-meta" id="duty-meta"></div>
+      </div>
+
       <div class="field">
         <label for="cat12">
           Cat 1 / 2
@@ -213,12 +282,15 @@
       <p class="total">
         <span id="total">0</span><span class="total-unit">min</span>
       </p>
-
+      <div class="status short" id="status">Select a duty to see goal</div>
       <div class="breakdown" id="breakdown"></div>
     </section>
   </main>
 
   <script>
+    const MEAL_HOURS = 1;
+    const GOAL_PER_HOUR = 60;
+
     const RATES = {
       cat12: 45,
       cat3: 22,
@@ -233,15 +305,163 @@
       emw: 'EMW admitted',
     };
 
+    const DUTIES = [
+      { code: 'A', label: 'A', time: '0800-1630', group: 'Day' },
+      { code: 'A1', label: 'A1', time: '0730-1530', group: 'Day' },
+      { code: 'A2', label: 'A2', time: '0800-1700', group: 'Day' },
+      { code: 'A3', label: 'A3', time: '0830-1630', group: 'Day' },
+      { code: 'A4', label: 'A4', time: '0730-1500', group: 'Day' },
+      { code: 'A5', label: 'A5', time: '0900-1700', group: 'Day' },
+      { code: 'A6', label: 'A6', time: '0800-1600', group: 'Day' },
+      { code: 'A7', label: 'A7', time: '0900-1600', group: 'Day' },
+      { code: 'A8', label: 'A8', time: '0800-1830', group: 'Day' },
+      { code: 'A9', label: 'A9', time: '0730-1630', group: 'Day' },
+      { code: 'A10', label: 'A10', time: '0830-1700', group: 'Day' },
+      { code: 'P1', label: 'P1', time: '1530-2330', group: 'Evening' },
+      { code: 'P2', label: 'P2', time: '1600-2400', group: 'Evening' },
+      { code: 'P3', label: 'P3', time: '1600-2400', group: 'Evening' },
+      { code: 'P4', label: 'P4', time: '1600-2400', group: 'Evening' },
+      { code: 'P6', label: 'P6', time: '1300-2400', group: 'Evening' },
+      { code: 'P7', label: 'P7', time: '2030-2400', group: 'Evening' },
+      { code: 'P8', label: 'P8', time: '1400-2400', group: 'Evening' },
+      { code: 'N1', label: 'N1', time: '0000-0800', group: 'Night' },
+      { code: 'N2', label: 'N2', time: '2330-0730', group: 'Night' },
+      { code: 'N3', label: 'N3', time: '2200-0930', group: 'Night' },
+      { code: 'N4', label: 'N4', time: '2130-0730', group: 'Night' },
+      { code: 'N5', label: 'N5', time: '2330-0900', group: 'Night' },
+      { code: '0a-7:30a', label: '0a-7:30a', time: '0a-7:30a', hours: 7.5, group: 'Night' },
+      { code: 'D1', label: 'D1', time: '0900-1930', group: 'Extended' },
+      { code: 'D2', label: 'D2', time: '1300-2300', group: 'Extended' },
+      { code: 'D3', label: 'D3', time: '1200-2300', group: 'Extended' },
+      { code: 'D4', label: 'D4 EMW', time: '0900-1800', group: 'EMW / IC' },
+      { code: 'D5', label: 'D5 EM/AE', time: '0900-1800', group: 'EMW / IC' },
+      { code: 'D6', label: 'D6', time: '1330-2330', group: 'Extended' },
+      { code: 'D', label: 'D', time: '0900-1830', group: 'Extended' },
+      { code: 'Dk', label: 'Dk (EMW)', time: '0900-1748', group: 'EMW / IC' },
+      { code: 'Ag', label: 'Ag', time: '0812-1700', group: 'EMW / IC' },
+      { code: 'Ac', label: 'Ac', time: '0812-1700', group: 'EMW / IC' },
+      { code: 'Ag1', label: 'Ag1', time: '0812-1700', group: 'EMW / IC' },
+      { code: 'Ac1', label: 'Ac1', time: '0812-1700', group: 'EMW / IC' },
+      { code: 'Ag2', label: 'Ag2', time: '0800-1230', group: 'EMW / IC' },
+      { code: 'Ac2', label: 'Ac2', time: '0800-1230', group: 'EMW / IC' },
+      { code: 'Ag3', label: 'Ag3', time: '1230-1700', group: 'EMW / IC' },
+      { code: 'Ac3', label: 'Ac3', time: '1230-1700', group: 'EMW / IC' },
+      { code: 'As1', label: 'As1', time: '0800-1700', group: 'EMW / IC' },
+      { code: 'As2', label: 'As2', time: '0800-1700', group: 'EMW / IC' },
+      { code: 'As1#', label: 'As1#', time: '0800-1600', group: 'EMW / IC' },
+      { code: 'As2#', label: 'As2#', time: '0800-1600', group: 'EMW / IC' },
+      { code: 'Ps1', label: 'Ps1', time: '1530-2400', group: 'EMW / IC' },
+      { code: 'Ps2', label: 'Ps2', time: '1530-2400', group: 'EMW / IC' },
+      { code: 'Ps1#', label: 'Ps1#', time: '1600-2400', group: 'EMW / IC' },
+      { code: 'Ps2#', label: 'Ps2#', time: '1600-2400', group: 'EMW / IC' },
+      { code: 'Dps1', label: 'Dps1', time: '1230-2400', group: 'EMW / IC' },
+      { code: 'Dps2', label: 'Dps2', time: '1230-2400', group: 'EMW / IC' },
+      { code: 'M', label: 'M', time: '1230-2030', group: 'Other' },
+      { code: 'M1', label: 'M1', time: '1130-2030', group: 'Other' },
+      { code: 'M2', label: 'M2', time: '1230-2130', group: 'Other' },
+      { code: 'O/FM', label: 'O/FM', time: '1400-1600', group: 'Other' },
+    ];
+
+    function parseTimeToMinutes(value) {
+      const raw = value.trim().toLowerCase().replace(/[：.]/g, ':');
+      if (raw.includes('a') && raw.includes('-')) {
+        const [start, end] = raw.split('-');
+        const startMatch = start.match(/(\d+)a/);
+        const endMatch = end.match(/(\d+):?(\d+)?a/);
+        if (startMatch && endMatch) {
+          const startMin = Number(startMatch[1]) * 60;
+          const endHour = Number(endMatch[1]);
+          const endMin = endHour * 60 + Number(endMatch[2] || 0);
+          return [startMin, endMin];
+        }
+      }
+
+      const [start, end] = raw.split('-');
+      const toMinutes = (part) => {
+        const cleaned = part.trim().replace(':', '');
+        if (cleaned.length === 3) {
+          return Number(cleaned[0]) * 60 + Number(cleaned.slice(1));
+        }
+        if (cleaned.length === 4) {
+          return Number(cleaned.slice(0, 2)) * 60 + Number(cleaned.slice(2));
+        }
+        const [h, m = '0'] = part.trim().split(':');
+        return Number(h) * 60 + Number(m);
+      };
+
+      let startMin = toMinutes(start);
+      let endMin = toMinutes(end);
+      if (endMin <= startMin) endMin += 24 * 60;
+      return [startMin, endMin];
+    }
+
+    function getShiftHours(duty) {
+      if (duty.hours) return duty.hours;
+      const [start, end] = parseTimeToMinutes(duty.time);
+      return (end - start) / 60;
+    }
+
+    DUTIES.forEach((duty) => {
+      duty.hours = getShiftHours(duty);
+      duty.goal = Math.max(0, Math.round((duty.hours - MEAL_HOURS) * GOAL_PER_HOUR));
+    });
+
+    const dutySelect = document.getElementById('duty');
+    const dutyMetaEl = document.getElementById('duty-meta');
     const inputs = {
       cat12: document.getElementById('cat12'),
       cat3: document.getElementById('cat3'),
       cat45: document.getElementById('cat45'),
       emw: document.getElementById('emw'),
     };
-
     const totalEl = document.getElementById('total');
+    const statusEl = document.getElementById('status');
     const breakdownEl = document.getElementById('breakdown');
+
+    const groups = [...new Set(DUTIES.map((d) => d.group))];
+    groups.forEach((group) => {
+      const optgroup = document.createElement('optgroup');
+      optgroup.label = group;
+      DUTIES.filter((d) => d.group === group).forEach((duty) => {
+        const option = document.createElement('option');
+        option.value = duty.code;
+        option.textContent = `${duty.label} (${duty.time})`;
+        optgroup.appendChild(option);
+      });
+      dutySelect.appendChild(optgroup);
+    });
+
+    function formatHours(hours) {
+      const wholeHours = Math.floor(hours);
+      const minutes = Math.round((hours - wholeHours) * 60);
+      if (minutes === 0) return `${wholeHours} h`;
+      return `${wholeHours} h ${minutes} min`;
+    }
+
+    function getSelectedDuty() {
+      return DUTIES.find((duty) => duty.code === dutySelect.value);
+    }
+
+    function renderDutyMeta(duty) {
+      dutyMetaEl.innerHTML = `
+        <div class="duty-meta-item">
+          <span class="duty-meta-label">Shift</span>
+          <span class="duty-meta-value">${duty.time}</span>
+        </div>
+        <div class="duty-meta-item">
+          <span class="duty-meta-label">Hours</span>
+          <span class="duty-meta-value">${formatHours(duty.hours)}</span>
+        </div>
+        <div class="duty-meta-item goal">
+          <span class="duty-meta-label">Minute goal</span>
+          <span class="duty-meta-value">${duty.goal} min</span>
+        </div>
+        <div class="duty-meta-item">
+          <span class="duty-meta-label">Formula</span>
+          <span class="duty-meta-value">(${duty.hours.toFixed(2)} − ${MEAL_HOURS}) × ${GOAL_PER_HOUR}</span>
+        </div>
+      `;
+    }
 
     function clamp(value) {
       if (!Number.isFinite(value) || value < 0) return 0;
@@ -249,6 +469,9 @@
     }
 
     function calculate() {
+      const duty = getSelectedDuty();
+      renderDutyMeta(duty);
+
       const counts = {};
       let total = 0;
 
@@ -265,6 +488,15 @@
 
       totalEl.textContent = total.toLocaleString();
 
+      const diff = total - duty.goal;
+      if (diff >= 0) {
+        statusEl.className = 'status met';
+        statusEl.textContent = `Goal met — ${total} / ${duty.goal} min (+${diff} min)`;
+      } else {
+        statusEl.className = 'status short';
+        statusEl.textContent = `Below goal — ${total} / ${duty.goal} min (${diff} min)`;
+      }
+
       breakdownEl.innerHTML = Object.keys(RATES)
         .map((key) => {
           const mins = parts[key];
@@ -274,6 +506,7 @@
         .join('');
     }
 
+    dutySelect.addEventListener('change', calculate);
     Object.values(inputs).forEach((input) => {
       input.addEventListener('input', calculate);
     });
